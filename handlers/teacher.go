@@ -88,7 +88,7 @@ func CreateSession(c *gin.Context) {
 
 		case <-tickerAbsentees.C:
 			// Fetch the updated absentee list every 5 seconds
-			absentees, err := sessions.GetAbsentees(sessionID)
+			absentees, presentees, err := sessions.GetAttendanceList(sessionID)
 			if err != nil {
 				log.Printf("Failed to get absentees: %v", err)
 				return
@@ -103,8 +103,13 @@ func CreateSession(c *gin.Context) {
 					last3j, _ := strconv.Atoi(absentees[j].SRN[len(absentees[j].SRN)-3:])
 					return last3i < last3j
 				})
+				sort.Slice(presentees, func(i, j int) bool {
+					last3i, _ := strconv.Atoi(presentees[i].SRN[len(presentees[i].SRN)-3:])
+					last3j, _ := strconv.Atoi(presentees[j].SRN[len(presentees[j].SRN)-3:])
+					return last3i < last3j
+				})
 
-				err = conn.WriteJSON(gin.H{"absentees": absentees})
+				err = conn.WriteJSON(gin.H{"absentees": absentees, "presentees": presentees})
 				if err != nil {
 					log.Printf("Client disconnected during absentee update: %v", err)
 					return

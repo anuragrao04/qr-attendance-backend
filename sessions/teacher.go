@@ -65,21 +65,25 @@ func DeleteSession(sessionID uint32) {
 	delete(Sessions, sessionID)
 }
 
-func GetAbsentees(sessionID uint32) ([]models.StudentInASession, error) {
+// returns absentee list and presentee list
+func GetAttendanceList(sessionID uint32) ([]models.StudentInASession, []models.StudentInASession, error) {
 	SessionsMutex.Lock()
 	defer SessionsMutex.Unlock()
 
 	session, exists := Sessions[sessionID]
 	if !exists {
-		return nil, fmt.Errorf("session %d not found", sessionID)
+		return nil, nil, fmt.Errorf("session %d not found", sessionID)
 	}
 
 	var absentees []models.StudentInASession
+	var presentees []models.StudentInASession
 	for _, student := range session.Students {
 		if !student.IsPresent {
 			absentees = append(absentees, student)
+		} else {
+			presentees = append(presentees, student)
 		}
 	}
 
-	return absentees, nil
+	return absentees, presentees, nil
 }
