@@ -85,7 +85,7 @@ func StudentScan(c *gin.Context) {
 			// Respond with failure, keep the connection open for retries
 			errorMessage := err.Error()
 			log.Println(scanMessage.SRN, errorMessage)
-			conn.WriteJSON(gin.H{"status": "NOT_OK", "message": errorMessage})
+			conn.WriteJSON(gin.H{"status": "error", "message": errorMessage})
 		}
 	}
 }
