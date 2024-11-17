@@ -8,10 +8,10 @@ type Session struct {
 }
 
 type StudentInASession struct {
-	PRN       string
-	SRN       string
-	Name      string
-	IsPresent bool
+	PRN       string `json:"PRN"`
+	SRN       string `json:"SRN"`
+	Name      string `json:"name"`
+	IsPresent bool   `json:"isPresent"`
 }
 
 type RandomID struct {

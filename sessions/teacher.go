@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -15,11 +16,11 @@ var Sessions = make(map[uint32]models.Session) // SessionID -> Session
 var SessionsMutex sync.Mutex
 
 // generates a new session of the given classroom, populating the student details on the way
-func CreateSession(classroomTableName string) (uint32, error) {
+func CreateSession(classroomTableName string) (uint32, []models.StudentInASession, error) {
 	students, err := database.GetStudentsInAClassroom(classroomTableName)
 	if err != nil {
 		log.Println("Failed to get students in classroom:", err)
-		return 0, err
+		return 0, nil, err
 	}
 	// create a unique sessionID
 	sessID := uint32(rand.Uint32())
@@ -30,7 +31,7 @@ func CreateSession(classroomTableName string) (uint32, error) {
 		Students:       students,
 	}
 	log.Println("Created new session with ID:", sessID)
-	return sessID, nil
+	return sessID, students, nil
 }
 
 // updates the current random ID for a session and archives the previous one
@@ -62,4 +63,23 @@ func DeleteSession(sessionID uint32) {
 	SessionsMutex.Lock()
 	defer SessionsMutex.Unlock()
 	delete(Sessions, sessionID)
+}
+
+func GetAbsentees(sessionID uint32) ([]models.StudentInASession, error) {
+	SessionsMutex.Lock()
+	defer SessionsMutex.Unlock()
+
+	session, exists := Sessions[sessionID]
+	if !exists {
+		return nil, fmt.Errorf("session %d not found", sessionID)
+	}
+
+	var absentees []models.StudentInASession
+	for _, student := range session.Students {
+		if !student.IsPresent {
+			absentees = append(absentees, student)
+		}
+	}
+
+	return absentees, nil
 }

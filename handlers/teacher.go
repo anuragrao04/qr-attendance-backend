@@ -4,6 +4,8 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/anuragrao04/qr-attendance-backend/models"
@@ -39,7 +41,7 @@ func CreateSession(c *gin.Context) {
 	log.Println("Table:", table)
 
 	// Create a session
-	sessionID, err := sessions.CreateSession(table)
+	sessionID, students, err := sessions.CreateSession(table)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -52,23 +54,25 @@ func CreateSession(c *gin.Context) {
 	}()
 
 	// Send the session ID to the client
-	err = conn.WriteJSON(gin.H{"sessionID": sessionID})
+	err = conn.WriteJSON(gin.H{"sessionID": sessionID, "students": students})
 	if err != nil {
 		log.Printf("Failed to send session ID: %v", err)
 		return
 	}
 
-	// Generate random IDs and transmit them every 200 ms
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
+	// Start listening for real-time updates
+	tickerRandomID := time.NewTicker(200 * time.Millisecond)
+	defer tickerRandomID.Stop()
 
+	tickerAbsentees := time.NewTicker(5 * time.Second)
+	defer tickerAbsentees.Stop()
+
+	var lastSentAbsentees []models.StudentInASession
 	for {
 		select {
-		case <-ticker.C:
-			// Generate a new random ID
+		case <-tickerRandomID.C:
+			// Generate a new random ID and update the session
 			randomID := generateRandomID()
-
-			// Update the session with the new random ID
 			err := sessions.UpdateRandomID(sessionID, randomID)
 			if err != nil {
 				log.Printf("Failed to update session random ID: %v", err)
@@ -78,9 +82,34 @@ func CreateSession(c *gin.Context) {
 			// Transmit the new random ID to the client
 			err = conn.WriteJSON(randomID)
 			if err != nil {
-				// Detect broken pipe or disconnection
 				log.Printf("Client disconnected: %v", err)
 				return
+			}
+
+		case <-tickerAbsentees.C:
+			// Fetch the updated absentee list every 5 seconds
+			absentees, err := sessions.GetAbsentees(sessionID)
+			if err != nil {
+				log.Printf("Failed to get absentees: %v", err)
+				return
+			}
+
+			// Only send the absentee list if it has changed
+			if !isSameAbsenteeList(lastSentAbsentees, absentees) {
+				// sort the absentees by SRN
+
+				sort.Slice(absentees, func(i, j int) bool {
+					last3i, _ := strconv.Atoi(absentees[i].SRN[len(absentees[i].SRN)-3:])
+					last3j, _ := strconv.Atoi(absentees[j].SRN[len(absentees[j].SRN)-3:])
+					return last3i < last3j
+				})
+
+				err = conn.WriteJSON(gin.H{"absentees": absentees})
+				if err != nil {
+					log.Printf("Client disconnected during absentee update: %v", err)
+					return
+				}
+				lastSentAbsentees = absentees // Update the last sent list
 			}
 		}
 	}
@@ -94,4 +123,18 @@ func generateRandomID() models.RandomID {
 		CreatedAt: now,
 		ExpiredAt: now + 200, // ID is valid for 500 ms
 	}
+}
+
+func isSameAbsenteeList(a, b []models.StudentInASession) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].SRN != b[i].SRN || a[i].IsPresent != b[i].IsPresent {
+			return false
+		}
+	}
+
+	return true
 }
