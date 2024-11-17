@@ -10,6 +10,7 @@ func main() {
 
 	// database
 	database.Connect()
+	database.ConnectGORM()
 	router := gin.Default()
 	router.GET("/create-attendance-session", handlers.CreateSession)
 	router.GET("/scan-qr", handlers.StudentScan)

@@ -6,6 +6,8 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.24
+	gorm.io/driver/sqlite v1.5.6
+	gorm.io/gorm v1.25.12
 )
 
 require (
@@ -19,6 +21,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.20.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect

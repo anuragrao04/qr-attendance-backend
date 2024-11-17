@@ -19,6 +19,7 @@ var upgrader = websocket.Upgrader{
 		if origin == "http://localhost:3000" || origin == "https://attendance.anuragrao.site" {
 			return true
 		}
+		log.Println("Invalid Origin:", origin)
 		return false
 	},
 }
