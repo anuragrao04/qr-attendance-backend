@@ -36,12 +36,24 @@ func CreateSession(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Get the classroom table name from the request
+	// Receive initial timestamp from the client for clock drift calculation
+	var initMessage struct {
+		ClientTime string `json:"clientTime" binding:"required"` // Unix timestamp in milliseconds
+	}
+
+	err = conn.ReadJSON(&initMessage)
+	if err != nil {
+		log.Printf("Failed to read initial client message: %v", err)
+		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to read initial data"})
+		return
+	}
+
 	table := c.Query("table")
-	log.Println("Table:", table)
 
 	// Create a session
-	sessionID, students, err := sessions.CreateSession(table)
+	int64ClientTime, _ := strconv.ParseInt(initMessage.ClientTime, 10, 64)
+	log.Println("Received client time: ", int64ClientTime)
+	sessionID, students, err := sessions.CreateSession(table, int64ClientTime)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -118,6 +130,7 @@ func CreateSession(c *gin.Context) {
 			}
 		}
 	}
+
 }
 
 // Generate a new random ID
