@@ -3,6 +3,7 @@ package sessions
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -45,6 +46,7 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64) (bool, error) {
 			if abs(adjustedScannedAt-pastID.ExpiredAt) <= 100 {
 				return true, nil
 			}
+			log.Println("Delta: ", abs(adjustedScannedAt-pastID.ExpiredAt))
 			return false, errors.New("Past RandomID is invalid or expired")
 		}
 	}
