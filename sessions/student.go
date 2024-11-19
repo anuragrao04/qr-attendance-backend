@@ -34,7 +34,7 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64, studentLatency int6
 
 	// Validate against current RandomID
 	if session.CurrentRandomID.ID == scan.ScannedRandomID {
-		if abs(adjustedScannedAt-now) <= 100 {
+		if adjustedScannedAt-session.CurrentRandomID.ExpiredAt <= 100 {
 			return true, nil
 		}
 		return false, errors.New("Current RandomID is invalid or expired")
@@ -43,7 +43,7 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64, studentLatency int6
 	// Validate against past RandomIDs
 	for _, pastID := range session.PastRandomIDs {
 		if pastID.ID == scan.ScannedRandomID {
-			if abs(adjustedScannedAt-pastID.ExpiredAt) <= 100 {
+			if adjustedScannedAt-pastID.ExpiredAt <= 100 {
 				return true, nil
 			}
 			log.Println("Delta: ", adjustedScannedAt-pastID.ExpiredAt)
