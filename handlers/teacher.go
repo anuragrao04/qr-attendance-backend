@@ -37,11 +37,22 @@ func CreateSession(c *gin.Context) {
 	defer conn.Close()
 
 	// Receive initial timestamp from the client for clock drift calculation
-	var initMessage struct {
-		ClientTime string `json:"clientTime" binding:"required"` // Unix timestamp in milliseconds
-	}
 
+	conn.WriteJSON(models.RandomID{
+		ID: 1234567890, // dummy random ID to probe the render latency
+	})
+	beforeProbe := time.Now().UnixNano()
+	var initMessage struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}
 	err = conn.ReadJSON(&initMessage)
+	afterProbe := time.Now().UnixNano()
+
+	teacherRenderLatency := (afterProbe - beforeProbe) / 2
+
+	log.Println("Teacher Render Latency: ", teacherRenderLatency)
+
 	if err != nil {
 		log.Printf("Failed to read initial client message: %v", err)
 		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to read initial data"})
@@ -51,9 +62,8 @@ func CreateSession(c *gin.Context) {
 	table := c.Query("table")
 
 	// Create a session
-	int64ClientTime, _ := strconv.ParseInt(initMessage.ClientTime, 10, 64)
-	log.Println("Received client time: ", int64ClientTime)
-	sessionID, students, err := sessions.CreateSession(table, int64ClientTime)
+	log.Println("Received render time: ", teacherRenderLatency)
+	sessionID, students, err := sessions.CreateSession(table, teacherRenderLatency)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

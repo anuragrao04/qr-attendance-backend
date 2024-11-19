@@ -29,7 +29,7 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64) (bool, error) {
 
 	// Adjust ScannedAt for both clock drift and teacher clock drift
 	int64ScannedAt, _ := strconv.ParseInt(scan.ScannedAt, 10, 64)
-	adjustedScannedAt := int64ScannedAt - clockDrift - session.TeacherClockDrift
+	adjustedScannedAt := int64ScannedAt + clockDrift - session.TeacherQRRenderingLatency
 	now := time.Now().UnixMilli()
 
 	// Validate against current RandomID

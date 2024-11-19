@@ -1,11 +1,11 @@
 package models
 
 type Session struct {
-	CurrentRandomID   RandomID
-	PastRandomIDs     []RandomID
-	ClassroomTable    string
-	Students          []StudentInASession
-	TeacherClockDrift int64
+	CurrentRandomID           RandomID
+	PastRandomIDs             []RandomID
+	ClassroomTable            string
+	Students                  []StudentInASession
+	TeacherQRRenderingLatency int64
 }
 
 type StudentInASession struct {

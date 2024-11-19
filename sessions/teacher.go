@@ -16,25 +16,23 @@ var Sessions = make(map[uint32]models.Session) // SessionID -> Session
 var SessionsMutex sync.Mutex
 
 // generates a new session of the given classroom, populating the student details on the way
-func CreateSession(classroomTableName string, teacherClockDrift int64) (uint32, []models.StudentInASession, error) {
+func CreateSession(classroomTableName string, teacherQRRenderingLatency int64) (uint32, []models.StudentInASession, error) {
 	students, err := database.GetStudentsInAClassroom(classroomTableName)
 	if err != nil {
 		log.Println("Failed to get students in classroom:", err)
 		return 0, nil, err
 	}
 
-	servTime := time.Now().UnixMilli()
-	teacherClockDrift = servTime - teacherClockDrift
-	log.Println("Teacher Clock Drift: ", teacherClockDrift)
+	log.Println("Teacher Rendering Latency: ", teacherQRRenderingLatency)
 
 	// create a unique sessionID
 	sessID := uint32(rand.Uint32())
 	SessionsMutex.Lock()
 	defer SessionsMutex.Unlock()
 	Sessions[sessID] = models.Session{
-		ClassroomTable:    classroomTableName,
-		Students:          students,
-		TeacherClockDrift: teacherClockDrift,
+		ClassroomTable:            classroomTableName,
+		Students:                  students,
+		TeacherQRRenderingLatency: teacherQRRenderingLatency,
 	}
 	log.Println("Created new session with ID:", sessID)
 	return sessID, students, nil
@@ -92,18 +90,4 @@ func GetAttendanceList(sessionID uint32) ([]models.StudentInASession, []models.S
 	}
 
 	return absentees, presentees, nil
-}
-
-func SetTeacherClockDrift(sessionID uint32, clockDrift int64) error {
-	SessionsMutex.Lock()
-	defer SessionsMutex.Unlock()
-
-	session, exists := Sessions[sessionID]
-	if !exists {
-		return fmt.Errorf("session %d not found", sessionID)
-	}
-
-	session.TeacherClockDrift = clockDrift
-	Sessions[sessionID] = session // Save the updated session
-	return nil
 }
