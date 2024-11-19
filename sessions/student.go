@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"time"
 
 	"github.com/anuragrao04/qr-attendance-backend/models"
 )
@@ -30,7 +29,6 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64, studentLatency int6
 	// Adjust ScannedAt for both clock drift and teacher clock drift
 	int64ScannedAt, _ := strconv.ParseInt(scan.ScannedAt, 10, 64)
 	adjustedScannedAt := int64ScannedAt + clockDrift - studentLatency - session.TeacherQRRenderingLatency
-	now := time.Now().UnixMilli()
 
 	// Validate against current RandomID
 	if session.CurrentRandomID.ID == scan.ScannedRandomID {
