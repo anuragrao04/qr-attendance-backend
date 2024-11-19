@@ -22,13 +22,21 @@ func StudentScan(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	serverBeforeTime := time.Now().UnixMilli()
+
 	// Receive initial timestamp from the client for clock drift calculation
 	var initMessage struct {
 		ClientTime         string `json:"clientTime"` // Unix timestamp in milliseconds
 		SRN                string `json:"SRN"`
 		BrowserFingerprint string `json:"browserFingerprint" binding:"required"`
 	}
+
 	err = conn.ReadJSON(&initMessage)
+
+	serverTime := time.Now().UnixMilli()
+
+	studentLatency := serverTime - serverBeforeTime
+
 	if err != nil {
 		log.Printf("Failed to read initial client message: %v", err)
 		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to read initial data"})
@@ -50,11 +58,11 @@ func StudentScan(c *gin.Context) {
 	}
 
 	// Calculate clock drift
-	serverTime := time.Now().UnixMilli()
 	int64ClientTime, _ := strconv.ParseInt(initMessage.ClientTime, 10, 64)
 	clockDrift := serverTime - int64ClientTime // Positive means client's clock is behind
 
 	log.Printf("Clock drift for SRN %s: %d ms", initMessage.SRN, clockDrift)
+	log.Printf("Latency for SRN %s: %d ms", initMessage.SRN, studentLatency)
 
 	// Handle QR code scans
 	var scanMessage models.ScanMessage
@@ -67,7 +75,7 @@ func StudentScan(c *gin.Context) {
 		}
 
 		// Validate the scanned data
-		isValid, err := sessions.ValidateScan(scanMessage, clockDrift)
+		isValid, err := sessions.ValidateScan(scanMessage, clockDrift, studentLatency)
 		if isValid {
 			log.Println(scanMessage.SRN, "being marked present")
 			// Mark student as present
