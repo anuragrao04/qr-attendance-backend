@@ -41,15 +41,18 @@ func CreateSession(c *gin.Context) {
 	conn.WriteJSON(models.RandomID{
 		ID: 1234567890, // dummy random ID to probe the render latency
 	})
-	beforeProbe := time.Now().UnixNano()
+
+	beforeProbe := time.Now().UnixMilli()
+
 	var initMessage struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
 	}
-	err = conn.ReadJSON(&initMessage)
-	afterProbe := time.Now().UnixNano()
 
-	teacherRenderLatency := (afterProbe - beforeProbe) / 2
+	err = conn.ReadJSON(&initMessage)
+	afterProbe := time.Now().UnixMilli()
+
+	teacherRenderLatency := (afterProbe - beforeProbe) / 2 // aproximately. some math in the air is going on here
 
 	log.Println("Teacher Render Latency: ", teacherRenderLatency)
 
