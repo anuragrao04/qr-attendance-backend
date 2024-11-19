@@ -46,15 +46,24 @@ func CreateSession(c *gin.Context) {
 
 	var initMessage struct {
 		Type    string `json:"type"`
-		Message string `json:"message"`
+		Message int64  `json:"message"`
 	}
 
 	err = conn.ReadJSON(&initMessage)
 	afterProbe := time.Now().UnixMilli()
 
-	teacherRenderLatency := (afterProbe - beforeProbe) / 2 // aproximately. some math in the air is going on here
+	teacherCommunicationLatency := (afterProbe - beforeProbe) / 2 // aproximately. some math in the air is going on here
+	log.Println("Teacher comm Latency: ", teacherCommunicationLatency)
 
-	log.Println("Teacher Render Latency: ", teacherRenderLatency)
+	// readJSON again for getting the rendering time
+	err = conn.ReadJSON(&initMessage)
+	// this contains the qr rendering time in milliseconds
+	// TODO: I am assuming the rendering message will come AFTER the init message
+	// since init message is sent onopen, and rendering message is sent after.
+	// get some way to separate these two
+
+	log.Println("Teacher render time: ", initMessage.Message)
+	TotalRenderingLatency := teacherCommunicationLatency + initMessage.Message
 
 	if err != nil {
 		log.Printf("Failed to read initial client message: %v", err)
@@ -65,8 +74,8 @@ func CreateSession(c *gin.Context) {
 	table := c.Query("table")
 
 	// Create a session
-	log.Println("Received render time: ", teacherRenderLatency)
-	sessionID, students, err := sessions.CreateSession(table, teacherRenderLatency)
+	log.Println("Total rendering latency: ", TotalRenderingLatency)
+	sessionID, students, err := sessions.CreateSession(table, TotalRenderingLatency)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
