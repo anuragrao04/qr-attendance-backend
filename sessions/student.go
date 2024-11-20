@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 
 	"github.com/anuragrao04/qr-attendance-backend/models"
@@ -40,7 +41,7 @@ func ValidateScan(scan models.ScanMessage, clockDrift int64, studentLatency int6
 	}
 
 	// Validate against past RandomIDs
-	for _, pastID := range session.PastRandomIDs {
+	for _, pastID := range slices.Backward(session.PastRandomIDs) {
 		log.Println("PastID Delta: ", adjustedScannedAt-pastID.ExpiredAt)
 		if pastID.ID == scan.ScannedRandomID {
 			if adjustedScannedAt-pastID.ExpiredAt <= 100 {
