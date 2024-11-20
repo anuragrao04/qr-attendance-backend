@@ -13,6 +13,17 @@ func ValidateFingerprint(srn string, fingerprint string) (isFingerprintValid boo
 	result := GORMDB.First(&student, "srn = ?", srn)
 	if result.Error != nil {
 		if result.Error.Error() == "record not found" {
+
+			// check if the fingerprint exists in the database (same fingerprint two SRNs)
+			// disallow that
+
+			result = GORMDB.First(&student, "fingerprint = ?", fingerprint)
+			if result.Error == nil {
+				// there was a student with the given fingerprint
+				// kill him
+				return false, nil
+			}
+
 			// create it
 			log.Println("Creating new fingerprint for SRN", srn, ":", fingerprint)
 			student = models.UserFingerprint{
