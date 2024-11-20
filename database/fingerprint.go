@@ -1,9 +1,11 @@
 package database
 
 import (
+	"errors"
 	"log"
 
 	"github.com/anuragrao04/qr-attendance-backend/models"
+	"gorm.io/gorm"
 )
 
 func ValidateFingerprint(srn string, fingerprint string) (isFingerprintValid bool, err error) {
@@ -12,13 +14,12 @@ func ValidateFingerprint(srn string, fingerprint string) (isFingerprintValid boo
 	var student models.UserFingerprint
 	result := GORMDB.First(&student, "srn = ?", srn)
 	if result.Error != nil {
-		if result.Error.Error() == "record not found" {
-
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			// check if the fingerprint exists in the database (same fingerprint two SRNs)
 			// disallow that
-
 			result = GORMDB.First(&student, "fingerprint = ?", fingerprint)
-			if result.Error == nil {
+
+			if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				// there was a student with the given fingerprint
 				// kill him
 				return false, nil
