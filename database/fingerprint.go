@@ -17,7 +17,7 @@ func ValidateFingerprint(srn string, fingerprint string) (isFingerprintValid boo
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			// check if the fingerprint exists in the database (same fingerprint two SRNs)
 			// disallow that
-			result = GORMDB.First(&student, "fingerprint = ?", fingerprint)
+			result = GORMDB.First(&student, "browser_fingerprint = ?", fingerprint)
 
 			if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				// there was a student with the given fingerprint
