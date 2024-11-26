@@ -8,6 +8,7 @@ import (
 
 	"github.com/anuragrao04/qr-attendance-backend/database"
 	"github.com/gin-gonic/gin"
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"gorm.io/gorm"
 )
@@ -39,7 +40,11 @@ func BeginRegistration(c *gin.Context) {
 		return
 	}
 
-	options, session, err := WebAuthn.BeginRegistration(user)
+	options, session, err := WebAuthn.BeginRegistration(user, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+		AuthenticatorAttachment: protocol.Platform,
+		RequireResidentKey:      protocol.ResidentKeyNotRequired(),
+		UserVerification:        protocol.VerificationRequired,
+	}))
 
 	WebAuthnRegisterSessions.Store(SRN, session)
 
