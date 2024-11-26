@@ -42,7 +42,7 @@ func BeginRegistration(c *gin.Context) {
 
 	options, session, err := WebAuthn.BeginRegistration(user, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 		AuthenticatorAttachment: protocol.Platform,
-		RequireResidentKey:      protocol.ResidentKeyNotRequired(),
+		RequireResidentKey:      protocol.ResidentKeyRequired(),
 		UserVerification:        protocol.VerificationRequired,
 	}))
 
