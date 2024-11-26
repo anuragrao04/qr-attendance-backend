@@ -28,9 +28,9 @@ func Connect() {
 
 func ConnectGORM() {
 	var err error
-	GORMDB, err = gorm.Open(sqlite.Open("sessions.db"), &gorm.Config{})
+	GORMDB, err = gorm.Open(sqlite.Open("users.db"), &gorm.Config{})
 	if err != nil {
-		panic("failed to connect to sessions database")
+		panic("failed to connect to users database")
 	}
-	GORMDB.AutoMigrate(&models.UserFingerprint{})
+	GORMDB.AutoMigrate(&models.User{})
 }

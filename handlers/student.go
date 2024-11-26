@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/anuragrao04/qr-attendance-backend/database"
 	"github.com/anuragrao04/qr-attendance-backend/models"
 	"github.com/anuragrao04/qr-attendance-backend/sessions"
 	"github.com/gin-gonic/gin"
@@ -26,9 +25,8 @@ func StudentScan(c *gin.Context) {
 
 	// Receive initial timestamp from the client for clock drift calculation
 	var initMessage struct {
-		ClientTime         string `json:"clientTime"` // Unix timestamp in milliseconds
-		SRN                string `json:"SRN"`
-		BrowserFingerprint string `json:"browserFingerprint" binding:"required"`
+		ClientTime string `json:"clientTime"` // Unix timestamp in milliseconds
+		SRN        string `json:"SRN"`
 	}
 
 	err = conn.ReadJSON(&initMessage)
@@ -40,20 +38,6 @@ func StudentScan(c *gin.Context) {
 	if err != nil {
 		log.Printf("Failed to read initial client message: %v", err)
 		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to read initial data"})
-		return
-	}
-
-	// validate the browser fingerprint
-	isFingerprintValid, err := database.ValidateFingerprint(initMessage.SRN, initMessage.BrowserFingerprint)
-	if err != nil {
-		log.Printf("Failed to validate browser fingerprint: %v", err)
-		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to validate browser fingerprint"})
-		return
-	}
-
-	if !isFingerprintValid {
-		log.Printf("Invalid browser fingerprint for SRN %s", initMessage.SRN)
-		conn.WriteJSON(gin.H{"status": "error", "message": "Invalid browser fingerprint"})
 		return
 	}
 
