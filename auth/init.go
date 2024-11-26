@@ -10,7 +10,7 @@ func Init() {
 	wconfig := &webauthn.Config{
 		RPDisplayName: "QR Attendance", // Display Name for your site
 		// RPID:          "attendance.anuragrao.site",                                            // Generally the FQDN for your site
-		RPID:      "localhost",
+		RPID:      "attendance.anuragrao.site",
 		RPOrigins: []string{"http://localhost:3000", "https://attendance.anuragrao.site"}, // The origin URLs allowed for WebAuthn requests
 	}
 	var err error
