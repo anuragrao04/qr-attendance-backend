@@ -19,12 +19,15 @@ func BeginRegistration(c *gin.Context) {
 	user, err := database.GetUser(SRN)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Println("User not found, creating new user")
 			user, err = database.CreateUser(SRN)
 			if err != nil {
+				log.Println(err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 		} else {
+			log.Println(err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
