@@ -13,6 +13,11 @@ import (
 
 func StudentScan(c *gin.Context) {
 	// Upgrade HTTP connection to WebSocket
+	SRN, err := c.Cookie("SRN")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "SRN cookie not found"})
+		return
+	}
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade to WebSocket: %v", err)
@@ -26,7 +31,6 @@ func StudentScan(c *gin.Context) {
 	// Receive initial timestamp from the client for clock drift calculation
 	var initMessage struct {
 		ClientTime string `json:"clientTime"` // Unix timestamp in milliseconds
-		SRN        string `json:"SRN"`
 	}
 
 	err = conn.ReadJSON(&initMessage)
@@ -45,8 +49,8 @@ func StudentScan(c *gin.Context) {
 	int64ClientTime, _ := strconv.ParseInt(initMessage.ClientTime, 10, 64)
 	clockDrift := serverTime - int64ClientTime // Positive means client's clock is behind
 
-	log.Printf("Clock drift for SRN %s: %d ms", initMessage.SRN, clockDrift)
-	log.Printf("Latency for SRN %s: %d ms", initMessage.SRN, studentLatency)
+	log.Printf("Clock drift for SRN %s: %d ms", SRN, clockDrift)
+	log.Printf("Latency for SRN %s: %d ms", SRN, studentLatency)
 
 	// Handle QR code scans
 	var scanMessage models.ScanMessage
@@ -57,6 +61,7 @@ func StudentScan(c *gin.Context) {
 			log.Printf("Client disconnected or error reading message: %v", err)
 			break
 		}
+		scanMessage.SRN = SRN // work around. because initially, SRN was sent via the scan message. Now it's through cookie
 
 		// Validate the scanned data
 		isValid, err := sessions.ValidateScan(scanMessage, clockDrift, studentLatency)
