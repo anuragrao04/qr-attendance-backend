@@ -26,6 +26,11 @@ func GetStudentsInAClassroom(studentTableName string) (students []models.Student
 			log.Println("Failed to scan student:", err)
 			return
 		}
+
+		if s.SRN == "NA" {
+			// god knows what happened to their SRN, a few people in nursing are like this
+			continue
+		}
 		s.IsPresent = false // Initialize to false
 		students = append(students, s)
 	}
