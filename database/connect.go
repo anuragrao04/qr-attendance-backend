@@ -20,7 +20,7 @@ var GORMDBMutex sync.Mutex
 // connectDB establishes a connection to the SQLite database
 func Connect() {
 	var err error
-	DB, err = sql.Open("sqlite3", "./pes-people-2024-11-01.db")
+	DB, err = sql.Open("sqlite3", "./pes-people.db")
 	if err != nil {
 		log.Fatal(err)
 	}
