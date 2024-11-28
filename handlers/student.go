@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/anuragrao04/qr-attendance-backend/database"
 	"github.com/anuragrao04/qr-attendance-backend/models"
 	"github.com/anuragrao04/qr-attendance-backend/sessions"
 	"github.com/gin-gonic/gin"

@@ -37,7 +37,6 @@ func CreateSession(c *gin.Context) {
 	defer conn.Close()
 
 	// Receive initial timestamp from the client for clock drift calculation
-
 	conn.WriteJSON(models.RandomID{
 		ID: 1234567890, // dummy random ID to probe the render latency
 	})
