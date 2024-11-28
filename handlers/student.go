@@ -44,18 +44,18 @@ func StudentScan(c *gin.Context) {
 	}
 
 	// validate the browser fingerprint
-	isFingerprintValid, err := database.ValidateFingerprint(initMessage.SRN, initMessage.BrowserFingerprint)
-	if err != nil {
-		log.Printf("Failed to validate browser fingerprint: %v", err)
-		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to validate browser fingerprint"})
-		return
-	}
+	// isFingerprintValid, err := database.ValidateFingerprint(initMessage.SRN, initMessage.BrowserFingerprint)
+	// if err != nil {
+	// 	log.Printf("Failed to validate browser fingerprint: %v", err)
+	// 	conn.WriteJSON(gin.H{"status": "error", "message": "Failed to validate browser fingerprint"})
+	// 	return
+	// }
 
-	if !isFingerprintValid {
-		log.Printf("Invalid browser fingerprint for SRN %s", initMessage.SRN)
-		conn.WriteJSON(gin.H{"status": "error", "message": "Invalid browser fingerprint"})
-		return
-	}
+	// if !isFingerprintValid {
+	// 	log.Printf("Invalid browser fingerprint for SRN %s", initMessage.SRN)
+	// 	conn.WriteJSON(gin.H{"status": "error", "message": "Invalid browser fingerprint"})
+	// 	return
+	// }
 
 	// Calculate clock drift
 	int64ClientTime, _ := strconv.ParseInt(initMessage.ClientTime, 10, 64)
