@@ -79,6 +79,11 @@ func GetAttendanceList(sessionID uint32) ([]models.StudentInASession, []models.S
 		return nil, nil, fmt.Errorf("session %d not found", sessionID)
 	}
 
+	if len(session.Students) == 0 {
+		// this classroom doesn't exist
+		return nil, nil, fmt.Errorf("classroom doesn't exist")
+	}
+
 	var absentees []models.StudentInASession
 	var presentees []models.StudentInASession
 	for _, student := range session.Students {

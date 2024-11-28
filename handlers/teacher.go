@@ -124,13 +124,16 @@ func CreateSession(c *gin.Context) {
 			absentees, presentees, err := sessions.GetAttendanceList(sessionID)
 			if err != nil {
 				log.Printf("Failed to get absentees: %v", err)
+				if err.Error() == "classroom doesn't exist" {
+					conn.WriteJSON(gin.H{"error": "Classroom does not exist. Please double check the classroom details"})
+					return
+				}
 				return
 			}
 
 			// Only send the absentee list if it has changed
 			if !isSameAbsenteeList(lastSentAbsentees, absentees) {
 				// sort the absentees by SRN
-
 				sort.Slice(absentees, func(i, j int) bool {
 					last3i, _ := strconv.Atoi(absentees[i].SRN[len(absentees[i].SRN)-3:])
 					last3j, _ := strconv.Atoi(absentees[j].SRN[len(absentees[j].SRN)-3:])

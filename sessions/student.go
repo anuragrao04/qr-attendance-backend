@@ -72,7 +72,7 @@ func MarkStudentPresent(sessionID uint32, srn string) error {
 		}
 	}
 
-	return fmt.Errorf("student SRN %s not found in session %d", srn, sessionID)
+	return fmt.Errorf("student not part of classroom")
 }
 
 func abs(value int64) int64 {
