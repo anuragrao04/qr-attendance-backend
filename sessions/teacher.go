@@ -19,7 +19,6 @@ var SessionsMutex sync.Mutex
 func CreateSession(classroomTableName string, teacherQRRenderingLatency int64) (uint32, []models.StudentInASession, error) {
 	students, err := database.GetStudentsInAClassroom(classroomTableName)
 	if err != nil {
-		log.Println("Failed to get students in classroom:", err)
 		return 0, nil, err
 	}
 

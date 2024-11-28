@@ -76,9 +76,9 @@ func StudentScan(c *gin.Context) {
 		// Validate the scanned data
 		isValid, err := sessions.ValidateScan(scanMessage, clockDrift, studentLatency)
 		if err != nil {
-			log.Printf("Failed to validate scan: %v", err)
-
-			if err.Error() == "student not part of classroom" {
+			errText := err.Error()
+			log.Printf("Failed to validate scan: %v", errText)
+			if errText == "student not part of classroom" {
 				conn.WriteJSON(gin.H{"status": "pbkac", "message": "Please double check the SRN you've entered. Either the classroom your teacher entered is wrong, or the SRN you entered is wrong"})
 				break
 			}

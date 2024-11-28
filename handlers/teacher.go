@@ -76,8 +76,7 @@ func CreateSession(c *gin.Context) {
 	log.Println("Total rendering latency: ", TotalRenderingLatency)
 	sessionID, students, err := sessions.CreateSession(table, TotalRenderingLatency)
 	if err != nil {
-		log.Printf("Failed to create session: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		conn.WriteJSON(gin.H{"status": "error", "message": err.Error()})
 		return
 	}
 	defer func() {

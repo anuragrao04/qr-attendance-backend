@@ -14,7 +14,6 @@ func GetStudentsInAClassroom(studentTableName string) (students []models.Student
 	var rows *sql.Rows
 	rows, err = DB.Query(fmt.Sprintf("SELECT srn, prn, name FROM %s", studentTableName))
 	if err != nil {
-		log.Println("Failed to query students in classroom:", err)
 		return
 	}
 	defer rows.Close()
