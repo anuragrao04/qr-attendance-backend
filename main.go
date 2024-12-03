@@ -14,5 +14,5 @@ func main() {
 	router := gin.Default()
 	router.GET("/create-attendance-session", handlers.CreateSession)
 	router.GET("/scan-qr", handlers.StudentScan)
-	router.Run(":6969")
+	router.Run(":6968")
 }
