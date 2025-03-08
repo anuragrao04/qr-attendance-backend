@@ -35,6 +35,7 @@ func CreateSession(classroomTableName string, teacherQRRenderingLatency int64) (
 		TeacherQRRenderingLatency: teacherQRRenderingLatency,
 	}
 	log.Println("Created new session with ID:", sessID)
+	go notifyAttendanceChange(sessID) // push the first attendance list
 	return sessID, students, nil
 }
 
@@ -90,4 +91,103 @@ func GetAttendanceList(sessionID uint32) ([]models.StudentInASession, []models.S
 	}
 
 	return absentees, presentees, nil
+}
+
+func ToggleStudentAttendance(sessionID uint32, srn string) error {
+	SessionsMutex.Lock()
+	defer SessionsMutex.Unlock()
+
+	session, exists := Sessions[sessionID]
+	if !exists {
+		return fmt.Errorf("session %d not found", sessionID)
+	}
+
+	// Find and toggle the student's presence
+	found := false
+	for i, student := range session.Students {
+		if student.SRN == srn {
+			session.Students[i].IsPresent = !session.Students[i].IsPresent
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("student SRN %s not found in session %d", srn, sessionID)
+	}
+
+	// Save back the updated session
+	Sessions[sessionID] = session
+
+	// Notify about the change in a separate goroutine
+	go notifyAttendanceChange(sessionID)
+
+	return nil
+}
+
+// AttendanceChangeEvent represents a change in the attendance status
+type AttendanceChangeEvent struct {
+	SessionID  uint32
+	Absentees  []models.StudentInASession
+	Presentees []models.StudentInASession
+}
+
+// We'll use a map to store channels for each session
+var (
+	sessionEventChannels = make(map[uint32]chan AttendanceChangeEvent)
+	eventChannelsMutex   sync.Mutex
+)
+
+// RegisterForAttendanceChanges creates and returns a channel that will receive
+// attendance change events for the specified session
+func RegisterForAttendanceChanges(sessionID uint32) chan AttendanceChangeEvent {
+	eventChannelsMutex.Lock()
+	defer eventChannelsMutex.Unlock()
+
+	// Create a buffered channel to prevent blocking
+	ch := make(chan AttendanceChangeEvent, 10)
+	sessionEventChannels[sessionID] = ch
+	return ch
+}
+
+// UnregisterFromAttendanceChanges removes the event channel for a session
+func UnregisterFromAttendanceChanges(sessionID uint32) {
+	eventChannelsMutex.Lock()
+	defer eventChannelsMutex.Unlock()
+
+	if ch, exists := sessionEventChannels[sessionID]; exists {
+		close(ch)
+		delete(sessionEventChannels, sessionID)
+	}
+}
+
+// notifyAttendanceChange sends an attendance change event to any registered listeners
+func notifyAttendanceChange(sessionID uint32) {
+	eventChannelsMutex.Lock()
+	ch, exists := sessionEventChannels[sessionID]
+	eventChannelsMutex.Unlock()
+
+	if !exists {
+		return
+	}
+
+	// Get current attendance lists
+	absentees, presentees, err := GetAttendanceList(sessionID)
+	if err != nil {
+		log.Printf("Failed to get attendance lists for notification: %v", err)
+		return
+	}
+
+	// Send event to channel in a non-blocking way
+	select {
+	case ch <- AttendanceChangeEvent{
+		SessionID:  sessionID,
+		Absentees:  absentees,
+		Presentees: presentees,
+	}:
+		// Event sent successfully
+	default:
+		// Channel buffer is full, log and continue
+		log.Printf("Event channel for session %d is full, dropping notification", sessionID)
+	}
 }

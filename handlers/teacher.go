@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/anuragrao04/qr-attendance-backend/models"
@@ -36,53 +39,44 @@ func CreateSession(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Receive initial timestamp from the client for clock drift calculation
-
+	// Initial latency calibration
 	conn.WriteJSON(models.RandomID{
 		ID: 1234567890, // dummy random ID to probe the render latency
 	})
 
 	beforeProbe := time.Now().UnixMilli()
-
 	var initMessage struct {
 		Type    string `json:"type"`
 		Message int64  `json:"message"`
 	}
-
 	err = conn.ReadJSON(&initMessage)
 	afterProbe := time.Now().UnixMilli()
+	teacherCommunicationLatency := (afterProbe - beforeProbe) / 2
 
-	teacherCommunicationLatency := (afterProbe - beforeProbe) / 2 // aproximately. some math in the air is going on here
-	log.Println("Teacher comm Latency: ", teacherCommunicationLatency)
-
-	// readJSON again for getting the rendering time
+	// Read rendering time
 	err = conn.ReadJSON(&initMessage)
-	// this contains the qr rendering time in milliseconds
-	// TODO: I am assuming the rendering message will come AFTER the init message
-	// since init message is sent onopen, and rendering message is sent after.
-	// get some way to separate these two
-
-	log.Println("Teacher render time: ", initMessage.Message)
-	TotalRenderingLatency := teacherCommunicationLatency + initMessage.Message
-
 	if err != nil {
 		log.Printf("Failed to read initial client message: %v", err)
 		conn.WriteJSON(gin.H{"status": "error", "message": "Failed to read initial data"})
 		return
 	}
 
-	table := c.Query("table")
+	TotalRenderingLatency := teacherCommunicationLatency + initMessage.Message
 
-	// Create a session
-	log.Println("Total rendering latency: ", TotalRenderingLatency)
+	table := c.Query("table")
 	sessionID, students, err := sessions.CreateSession(table, TotalRenderingLatency)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Register for attendance change events
+	attendanceEvents := sessions.RegisterForAttendanceChanges(sessionID)
+
+	// Make sure to clean up when we're done
 	defer func() {
-		// Clean up the session on disconnect
+		sessions.UnregisterFromAttendanceChanges(sessionID)
 		sessions.DeleteSession(sessionID)
 		log.Printf("Session %d cleaned up", sessionID)
 	}()
@@ -94,65 +88,132 @@ func CreateSession(c *gin.Context) {
 		return
 	}
 
-	// Start listening for real-time updates
-	tickerRandomID := time.NewTicker(200 * time.Millisecond)
-	defer tickerRandomID.Stop()
+	// Mutex for WebSocket writes to prevent concurrent access
+	var wsWriteMutex sync.Mutex
 
-	tickerAbsentees := time.NewTicker(5 * time.Second)
-	defer tickerAbsentees.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	var lastSentAbsentees []models.StudentInASession
-	for {
-		select {
-		case <-tickerRandomID.C:
-			// Generate a new random ID and update the session
-			randomID := generateRandomID()
-			err := sessions.UpdateRandomID(sessionID, randomID)
-			if err != nil {
-				log.Printf("Failed to update session random ID: %v", err)
+	// 1. Goroutine for sending random IDs
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
 				return
-			}
-
-			// Transmit the new random ID to the client
-			err = conn.WriteJSON(randomID)
-			if err != nil {
-				log.Printf("Client disconnected: %v", err)
-				return
-			}
-
-		case <-tickerAbsentees.C:
-			// Fetch the updated absentee list every 5 seconds
-			absentees, presentees, err := sessions.GetAttendanceList(sessionID)
-			if err != nil {
-				log.Printf("Failed to get absentees: %v", err)
-				return
-			}
-
-			// Only send the absentee list if it has changed
-			if !isSameAbsenteeList(lastSentAbsentees, absentees) {
-				// sort the absentees by SRN
-
-				sort.Slice(absentees, func(i, j int) bool {
-					last3i, _ := strconv.Atoi(absentees[i].SRN[len(absentees[i].SRN)-3:])
-					last3j, _ := strconv.Atoi(absentees[j].SRN[len(absentees[j].SRN)-3:])
-					return last3i < last3j
-				})
-				sort.Slice(presentees, func(i, j int) bool {
-					last3i, _ := strconv.Atoi(presentees[i].SRN[len(presentees[i].SRN)-3:])
-					last3j, _ := strconv.Atoi(presentees[j].SRN[len(presentees[j].SRN)-3:])
-					return last3i < last3j
-				})
-
-				err = conn.WriteJSON(gin.H{"absentees": absentees, "presentees": presentees})
+			case <-ticker.C:
+				randomID := generateRandomID()
+				err := sessions.UpdateRandomID(sessionID, randomID)
 				if err != nil {
-					log.Printf("Client disconnected during absentee update: %v", err)
+					log.Printf("Failed to update session random ID: %v", err)
+					cancel()
 					return
 				}
-				lastSentAbsentees = absentees // Update the last sent list
+
+				wsWriteMutex.Lock()
+				err = conn.WriteJSON(randomID)
+				wsWriteMutex.Unlock()
+
+				if err != nil {
+					log.Printf("Failed to send random ID: %v", err)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	// 2. Goroutine for reading toggle requests
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var message struct {
+					Type string `json:"type"`
+					SRN  string `json:"srn"`
+				}
+
+				err := conn.ReadJSON(&message)
+
+				if err != nil {
+					// If it's a timeout, just continue
+					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+						continue
+					}
+
+					// Handle other errors
+					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+						log.Printf("WebSocket read error: %v", err)
+					}
+					cancel()
+					return
+				}
+
+				// Process toggle request
+				if message.Type == "TOGGLE_ATTENDANCE" && message.SRN != "" {
+					log.Printf("Toggling attendance for SRN: %s in session: %d", message.SRN, sessionID)
+
+					err := sessions.ToggleStudentAttendance(sessionID, message.SRN)
+					if err != nil {
+						log.Printf("Failed to toggle attendance: %v", err)
+
+						wsWriteMutex.Lock()
+						conn.WriteJSON(gin.H{"status": "error", "message": err.Error()})
+						wsWriteMutex.Unlock()
+					} else {
+						wsWriteMutex.Lock()
+						conn.WriteJSON(gin.H{"status": "OK", "message": "Attendance toggled successfully"})
+						wsWriteMutex.Unlock()
+					}
+				}
+			}
+		}
+	}()
+
+	// 3. Main loop to listen for attendance change events
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case event, ok := <-attendanceEvents:
+			if !ok {
+				// Channel closed
+				log.Printf("Attendance event channel closed for session %d", sessionID)
+				return
+			}
+
+			// Sort the lists
+			sort.Slice(event.Absentees, func(i, j int) bool {
+				last3i, _ := strconv.Atoi(event.Absentees[i].SRN[len(event.Absentees[i].SRN)-3:])
+				last3j, _ := strconv.Atoi(event.Absentees[j].SRN[len(event.Absentees[j].SRN)-3:])
+				return last3i < last3j
+			})
+
+			sort.Slice(event.Presentees, func(i, j int) bool {
+				last3i, _ := strconv.Atoi(event.Presentees[i].SRN[len(event.Presentees[i].SRN)-3:])
+				last3j, _ := strconv.Atoi(event.Presentees[j].SRN[len(event.Presentees[j].SRN)-3:])
+				return last3i < last3j
+			})
+
+			// Send updated lists to client
+			wsWriteMutex.Lock()
+			err := conn.WriteJSON(gin.H{
+				"absentees":  event.Absentees,
+				"presentees": event.Presentees,
+			})
+			wsWriteMutex.Unlock()
+
+			if err != nil {
+				log.Printf("Failed to send attendance lists: %v", err)
+				return
 			}
 		}
 	}
-
 }
 
 // Generate a new random ID
@@ -161,7 +222,7 @@ func generateRandomID() models.RandomID {
 	return models.RandomID{
 		ID:        uint32(rand.Uint32()),
 		CreatedAt: now,
-		ExpiredAt: now + 200, // ID is valid for 500 ms
+		ExpiredAt: now + 200, // ID is valid for 200 ms
 	}
 }
 

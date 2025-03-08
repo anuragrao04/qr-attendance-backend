@@ -64,15 +64,27 @@ func MarkStudentPresent(sessionID uint32, srn string) error {
 	}
 
 	// Update the student's presence
+	updated := false
 	for i, student := range session.Students {
 		if student.SRN == srn {
-			session.Students[i].IsPresent = true
-			Sessions[sessionID] = session // Save back the updated session
-			return nil
+			// Only update if status actually changes
+			if !session.Students[i].IsPresent {
+				session.Students[i].IsPresent = true
+				updated = true
+			}
+			break
 		}
 	}
 
-	return fmt.Errorf("student SRN %s not found in session %d", srn, sessionID)
+	if updated {
+		// Save back the updated session
+		Sessions[sessionID] = session
+		
+		// Notify about the change in a separate goroutine to avoid blocking
+		go notifyAttendanceChange(sessionID)
+	}
+	
+	return nil
 }
 
 func abs(value int64) int64 {
