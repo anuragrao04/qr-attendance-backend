@@ -203,6 +203,7 @@ func CreateSession(c *gin.Context) {
 			// Send updated lists to client
 			wsWriteMutex.Lock()
 			err := conn.WriteJSON(gin.H{
+				"type":       "ATTENDANCE_UPDATE",
 				"absentees":  event.Absentees,
 				"presentees": event.Presentees,
 			})
@@ -224,18 +225,4 @@ func generateRandomID() models.RandomID {
 		CreatedAt: now,
 		ExpiredAt: now + 200, // ID is valid for 200 ms
 	}
-}
-
-func isSameAbsenteeList(a, b []models.StudentInASession) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].SRN != b[i].SRN || a[i].IsPresent != b[i].IsPresent {
-			return false
-		}
-	}
-
-	return true
 }
